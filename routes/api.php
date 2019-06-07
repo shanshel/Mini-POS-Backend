@@ -26,7 +26,7 @@ Route::get('Invoices/GetInvoices', 'InvoiceController@GetInvoices');
 Route::get('Invoices/{id}/GetInvoice', 'InvoiceController@GetInvoice');
 Route::post('Invoices/AddInvoice', 'InvoiceController@AddInvoice');
 Route::post('Invoices/{id}/UpdateInvoice', 'InvoiceController@UpdateInvoice');
-Route::post('Invoices/payFixedAmount', 'InvoiceController@payFixedAmount');
+Route::post('Invoices/PayFixedAmount', 'InvoiceController@payFixedAmount');
 
 Route::get('Items/GetItems', 'ItemController@GetItems');
 Route::get('Items/{id}/GetItem', 'ItemController@GetItem');

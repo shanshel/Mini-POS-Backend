@@ -9,7 +9,14 @@ class CustomerController extends Controller
 {
     public function GetCustomers(Request $request)
     {
-        $customers = Customer::simplePaginate(20);
+        $search = $request->input('search', '');
+        $customers = new Customer;
+        if ($search != '') {
+            $customers = $customers->where('name', 'LIKE', $search.'%');
+        } 
+
+        $customers = $customers->simplePaginate(20);
+        
         return $customers;
     }
 
