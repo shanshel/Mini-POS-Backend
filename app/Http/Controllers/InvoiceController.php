@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Invoice;
 use App\Customer;
-
+use DB;
 class InvoiceController extends Controller
 {
     public function GetInvoices(Request $request)
     {
-        $invoices = Invoice::simplePaginate(20);
+        $invoices = Invoice::with('customer')->simplePaginate();
         return $invoices;
     }
 
@@ -62,82 +62,90 @@ class InvoiceController extends Controller
 
     public function payFixedAmount(Request $request)
     {
+        
         $request->validate([
             'customer_id' => 'bail|required|integer',
             'amount' => 'bail|required|integer',
         ]);
-
-        $customer = Customer::findOrfail($request->input('customer_id'));
        
-
+        
+        $customer = Customer::findOrfail($request->input('customer_id'));
+        
+        
         $payedAmount = $request->input('amount');
+        $originalPayedAmount = $payedAmount;
         $invoices = Invoice::where('customer_id', $request->input('customer_id'))
         ->where('is_fully_paid', false)->get();
         
-        DB::beginTransaction();
-
-        foreach ($invoices as $invoice) {
+        
+        $invoiceToUpdate = [];
+        foreach ($invoices as $key => $invoice) {
+            
             if ($invoice->remaining_amount == $payedAmount) {
                 $invoice->remaining_amount = 0;
                 $invoice->payed_amount = $invoice->total_amount;
                 $invoice->is_fully_paid = true;
-                if (!$invoice->save()) {
-                    DB::rollBack();
-                    http_response_code(500);
-                    return;
-                }
+                $invoiceToUpdate[] = $invoice;
                 $payedAmount = 0;
-                exit;
+                break;
             }
             else if ($invoice->remaining_amount < $payedAmount) {
                 $invoice->remaining_amount = 0;
                 $invoice->payed_amount = $invoice->total_amount;
                 $invoice->is_fully_paid = true;
-                
-                if (!$invoice->save()) {
-                    DB::rollBack();
-                    http_response_code(500);
-                    return;
-                }
+                $invoiceToUpdate[] = $invoice;
                 $payedAmount = $payedAmount - $invoice->remaining_amount;
             }
             else if ($invoice->remaining_amount > $payedAmount) {
                 $invoice->remaining_amount = $invoice->remaining_amount - $payedAmount;
                 $invoice->payed_amount = $invoice->payed_amount + $payedAmount;
-                if (!$invoice->save()) {
-                    DB::rollBack();
-                    http_response_code(500);
-                    return;
-                }
+                $invoiceToUpdate[] = $invoice;
                 $payedAmount = 0;
-                exit;
+                break;
             }
         }
-
         if ($payedAmount == $request->input('amount')) {
-            DB::rollBack();
-            http_response_code(500);
-            return "no_invoice";
+            http_response_code(400);
+            return ['nothing_to_pay'];
         }
-        else if ($payedAmount < $request->input('amount') && $payedAmount == 0) {
-            $customer->credit = $customer->credit + $payedAmount;
-            if (!$customer->save()) {
-                http_response_code(500);
-                DB::rollBack();
-                return "can't save credit";
-            }
-            http_response_code(200);
-            DB::commit();
-            return "ok";
+        if ($payedAmount > ($customer->credit * -1)) {
+            http_response_code(400);
+            return ['customer_payed_more', $customer->credit];
+        }
+        if ($payedAmount != 0){
+            http_response_code(400);
+            return ['conflict'];
+        }
 
-        } else {
-            //User Payed more than requested 
-            DB::rollBack();
-            http_response_code(500);
-            return "customer_payed_more";
+
+
+        DB::beginTransaction();
+
+        try {
+            
+            foreach ($invoiceToUpdate as $invoice) {
+                $invoice->save();
+            }
+        } catch(\Exception $e)
+        {
+            DB::rollback();
+            throw $e;
         }
-        
-    
+
+        try {
+            $customer->credit = $customer->credit + $originalPayedAmount;
+            $customer->save();
+        } catch(\Exception $e)
+        {
+            DB::rollback();
+            throw $e;
+        }
+
+      
+        DB::commit();
+       
+        return;
+
     }
 
 }
