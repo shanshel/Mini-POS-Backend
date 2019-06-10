@@ -3,19 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-$table->bigIncrements('id');
-$table->string('name')->unique();
-$table->string('barcode');
-$table->bigInteger('buy_price');
-$table->bigInteger('sell_price');
-$table->bigInteger('quantity')->default(-1);
-$table->timestamps();
+use App\Item;
+
 class ItemController extends Controller
 {
     public function GetItems(Request $request)
     {
         $search = $request->input('search', '');
-        $items = new Item;
+        $items = new Item();
         if ($search != '') {
             if (ctype_digit($search)) {
                 $items = $items->where('barcode', $search);
@@ -37,25 +32,24 @@ class ItemController extends Controller
 
     public function AddItem(Request $request)
     {
-        
         $request->validate([
             'name' => 'bail|required',
-            'barcode' => 'bail|numeric',
+            'barcode' => 'bail|nullable|numeric',
             'buy_price' => 'bail|required|numeric',
             'sell_price' => 'bail|required|numeric|gt:buy_price',
-            'quantity' => 'bail|numeric',
+            'quantity' => 'bail|nullable|numeric',
         ]);
-        
+    
         $item = new Item;
         $item->name = $request->input('name');
         $item->buy_price = $request->input('buy_price');
         $item->sell_price = $request->input('sell_price');
 
-        if ($request->has('quantity')) {
+        if ($request->has('quantity') && $request->input('quantity')) {
             $item->quantity = $request->input('quantity');
         }
 
-        if ($request->has('barcode')) {
+        if ($request->has('barcode') && $request->input('barcode')) {
             $item->barcode = $request->input('barcode');
         } else {
             $item->barcode = round(microtime(true) * 1000);
