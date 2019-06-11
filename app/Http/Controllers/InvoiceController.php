@@ -27,37 +27,83 @@ class InvoiceController extends Controller
             'payed_amount' => 'bail|required|integer',
         ]);
 
+        if ($request->has('items')) {
+            
+            $request->validate([
+                'items.*.id' => 'bail|required|numeric',
+                'items.*.count' => 'bail|nullable|numeric',
+            ]);
+        }
+
         $customer = Customer::findOrfail($request->input('customer_id'));
         DB::beginTransaction();
-
         $invoice = new Invoice();
         $invoice->customer_id = $request->input('customer_id');
         $invoice->total_amount = $request->input('total_amount');
         $invoice->payed_amount = $request->input('payed_amount');
         $invoice->remaining_amount = $request->input('total_amount') - $request->input('payed_amount');
-
         if ($request->input('total_amount') == $request->input('payed_amount')) {
             $invoice->is_fully_paid = true;
         } else {
             $invoice->is_fully_paid = false;
         }
+        if (!$invoice->save()){
+            DB::rollBack();
+            http_response_code(500);
+            return "can't save invoice";
+        }
 
-        if ($invoice->save()) {
-            $customer->credit = - ($request->input('total_amount') - $request->input('payed_amount'));
-            if (!$customer->save()){
-                http_response_code(500);
-                DB::rollBack();
-                return "can't save credit";
-            }
+        $customer->credit = - ($request->input('total_amount') - $request->input('payed_amount'));
+
+        if (!$customer->save()){
+            DB::rollBack();
+            http_response_code(500);
+            return "can't save customer cridet";
+        }
+        
+        
+        if (!$request->has('items')) {
             DB::commit();
             http_response_code(200);
             return $invoice;
         }
-        else {
+
+        $arrayOfIds = [];
+        
+        foreach ($request->input('items') as $key => $item) {
+            $arrayOfIds[] = $item['id'];
+        }
+        //get all items 
+        $items = Items::whereIn('id', $arrayOfIds)->get();
+        if (count($items) != count($arrayOfIds)) {
             DB::rollBack();
             http_response_code(500);
-            return;
+            return "missing item";
         }
+
+        //check if total price match 
+        $totalPrice = 0;
+        foreach($items as $itemFromDb){
+            foreach ($request->input('items') as $itemFromRequest) {
+                if ($itemFromDb['id'] == $itemFromRequest['id']) {
+                   $totalPrice += $itemFromRequest['count'] * $itemFromDb['sell_price'];
+                }
+            }
+        }
+
+        if ($totalPrice != $request->input('total_amount')) {
+            DB::rollBack();
+            http_response_code(500);
+            return "wrong totalPrice Sent";
+        }
+
+        DB::commit();
+        http_response_code(200);
+        return $invoice;
+
+
+
+      
     }
 
     public function payFixedAmount(Request $request)

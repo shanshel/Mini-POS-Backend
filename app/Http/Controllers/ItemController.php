@@ -98,6 +98,5 @@ class ItemController extends Controller
             http_response_code(500);
             return "";
         }
-
     }
 }
