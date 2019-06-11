@@ -19,6 +19,14 @@ class InvoiceController extends Controller
         return Invoice::findOrfail($id);
     }
 
+    public function GetPreviousInvoice($id){
+        return Invoice::where('id', '<', $id)->max('id')->first();
+    }
+
+    public function GetNextInvoice($id){
+        return Invoice::where('id', '>', $id)->min('id')->first();
+    }
+
     public function AddInvoice(Request $request)
     {
         $request->validate([
