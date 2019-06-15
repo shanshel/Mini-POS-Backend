@@ -61,7 +61,7 @@ class InvoiceController extends Controller
             return "can't save invoice";
         }
 
-        $customer->credit = - ($request->input('total_amount') - $request->input('payed_amount'));
+        $customer->credit = (- ($request->input('total_amount') - $request->input('payed_amount'))) + $customer->credit;
 
         if (!$customer->save()){
             DB::rollBack();
@@ -144,20 +144,23 @@ class InvoiceController extends Controller
                 break;
             }
             else if ($invoice->remaining_amount < $payedAmount) {
+                $payedAmount = $payedAmount - $invoice->remaining_amount;
                 $invoice->remaining_amount = 0;
                 $invoice->payed_amount = $invoice->total_amount;
                 $invoice->is_fully_paid = true;
                 $invoiceToUpdate[] = $invoice;
-                $payedAmount = $payedAmount - $invoice->remaining_amount;
             }
             else if ($invoice->remaining_amount > $payedAmount) {
                 $invoice->remaining_amount = $invoice->remaining_amount - $payedAmount;
                 $invoice->payed_amount = $invoice->payed_amount + $payedAmount;
+                $invoice->is_fully_paid = false;
                 $invoiceToUpdate[] = $invoice;
                 $payedAmount = 0;
                 break;
             }
         }
+
+       
         if ($payedAmount == $request->input('amount')) {
             http_response_code(400);
             return ['nothing_to_pay'];
@@ -170,7 +173,7 @@ class InvoiceController extends Controller
             http_response_code(400);
             return ['conflict'];
         }
-
+      
 
 
         DB::beginTransaction();

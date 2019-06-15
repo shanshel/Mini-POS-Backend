@@ -13,7 +13,11 @@ class ItemController extends Controller
         $items = new Item();
         if ($search != '') {
             if (ctype_digit($search)) {
-                $items = $items->where('barcode', $search);
+                if (strlen($search) < 5) {
+                    $items = $items->where('barcode', 'LIKE', $search.'%');
+                } else {
+                    $items = $items->where('barcode', $search);
+                }
             } 
             else {
                 $items = $items->where('name', 'LIKE', '%'.$search.'%');
