@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Invoice;
 use App\Customer;
 use DB;
+use App\Item;
+
 class InvoiceController extends Controller
 {
     public function GetInvoices(Request $request)
@@ -43,7 +45,19 @@ class InvoiceController extends Controller
             ]);
         }
 
-        $customer = Customer::findOrfail($request->input('customer_id'));
+        //if customer is -1 invoice should fully paid
+        if ($request->customer_id == -1) {
+            if ($request->input('total_amount') != $request->input('payed_amount')) {
+                http_response_code(500);
+                return "normal customer should always pay full amount";
+            }
+        }
+
+        if ($request->customer_id != -1) {
+            $customer = Customer::findOrfail($request->input('customer_id'));
+        }
+
+        
         DB::beginTransaction();
         $invoice = new Invoice();
         $invoice->customer_id = $request->input('customer_id');
@@ -61,14 +75,16 @@ class InvoiceController extends Controller
             return "can't save invoice";
         }
 
-        $customer->credit = (- ($request->input('total_amount') - $request->input('payed_amount'))) + $customer->credit;
-
-        if (!$customer->save()){
-            DB::rollBack();
-            http_response_code(500);
-            return "can't save customer cridet";
+        if ($request->customer_id != -1) {
+            $customer->credit = (- ($request->input('total_amount') - $request->input('payed_amount'))) + $customer->credit;
+            if (!$customer->save()){
+                DB::rollBack();
+                http_response_code(500);
+                return "can't save customer cridet";
+            }
         }
-        
+
+    
         
         if (!$request->has('items')) {
             DB::commit();
@@ -82,7 +98,7 @@ class InvoiceController extends Controller
             $arrayOfIds[] = $item['id'];
         }
         //get all items 
-        $items = Items::whereIn('id', $arrayOfIds)->get();
+        $items = Item::whereIn('id', $arrayOfIds)->get();
         if (count($items) != count($arrayOfIds)) {
             DB::rollBack();
             http_response_code(500);
