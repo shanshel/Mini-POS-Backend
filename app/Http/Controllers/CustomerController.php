@@ -41,7 +41,6 @@ class CustomerController extends Controller
             return $customer;
         }
         else {
-            
             http_response_code(201);
             return "";
         }

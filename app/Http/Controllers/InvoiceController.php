@@ -7,6 +7,7 @@ use App\Invoice;
 use App\Customer;
 use DB;
 use App\Item;
+use App\InvoiceItem;
 
 class InvoiceController extends Controller
 {
@@ -18,15 +19,16 @@ class InvoiceController extends Controller
 
     public function GetInvoice(Request $request, $id)
     {
-        return Invoice::findOrfail($id);
+        return Invoice::with('customer')->with('invoiceitems')->findOrfail($id);
     }
 
     public function GetPreviousInvoice($id){
-        return Invoice::where('id', '<', $id)->max('id')->first();
+        return Invoice::with('customer')->with('invoiceitems')->where('id', '<', $id)->orderBy('id', 'DESC')->first();
     }
 
     public function GetNextInvoice($id){
-        return Invoice::where('id', '>', $id)->min('id')->first();
+
+        return Invoice::with('customer')->with('invoiceitems')->where('id', '>', $id)->orderBy('id')->first();
     }
 
     public function AddInvoice(Request $request)
@@ -34,7 +36,7 @@ class InvoiceController extends Controller
         $request->validate([
             'total_amount' => 'bail|required|integer|gte:payed_amount',
             'customer_id' => 'bail|required|integer',
-            'payed_amount' => 'bail|required|integer',
+            'payed_amount' => 'bail|required|integer|min:0',
         ]);
 
         if ($request->has('items')) {
@@ -121,13 +123,33 @@ class InvoiceController extends Controller
             return "wrong totalPrice Sent";
         }
 
+
+
+        foreach($items as $itemFromDb){
+            foreach ($request->input('items') as $itemFromRequest) {
+                if ($itemFromDb['id'] == $itemFromRequest['id']) {
+                    $invoiceItem = new InvoiceItem();
+                    $invoiceItem->invoice_id = $invoice->id;
+                    $invoiceItem->item_id = $itemFromDb['id'];
+                    $invoiceItem->name = $itemFromDb['name'];
+                    $invoiceItem->barcode = $itemFromDb['barcode'];
+                    $invoiceItem->buy_price = $itemFromDb['buy_price'];
+                    $invoiceItem->sell_price = $itemFromDb['sell_price'];
+ 
+                    $invoiceItem->count = $itemFromRequest['count'];
+                    $invoiceItem->sub_price = $itemFromRequest['count'] * $itemFromDb['sell_price'];
+                    if (!$invoiceItem->save()){
+                        DB::rollBack();
+                        http_response_code(500);
+                        return "can't add item to invoice items";
+                    }
+                }
+            }
+        }
+
         DB::commit();
         http_response_code(200);
         return $invoice;
-
-
-
-      
     }
 
     public function payFixedAmount(Request $request)
@@ -135,7 +157,7 @@ class InvoiceController extends Controller
         
         $request->validate([
             'customer_id' => 'bail|required|integer',
-            'amount' => 'bail|required|integer',
+            'amount' => 'bail|required|integer|min:1',
         ]);
        
         

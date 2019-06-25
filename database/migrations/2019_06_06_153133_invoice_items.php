@@ -17,9 +17,12 @@ class InvoiceItems extends Migration
             $table->bigIncrements('id');
             $table->bigInteger('invoice_id');
             $table->bigInteger('item_id');
+            $table->string('name');
+            $table->string('barcode');
+            $table->bigInteger('buy_price');
+            $table->bigInteger('sell_price');
             $table->bigInteger('count');
             $table->bigInteger('sub_price');
-            $table->string('item_object');
             $table->timestamps();
         });
     }

@@ -24,6 +24,8 @@ Route::post('Customers/{id}/UpdateCustomer', 'CustomerController@UpdateCustomer'
 
 Route::get('Invoices/GetInvoices', 'InvoiceController@GetInvoices');
 Route::get('Invoices/{id}/GetInvoice', 'InvoiceController@GetInvoice');
+Route::get('Invoices/{id}/GetPreviousInvoice', 'InvoiceController@GetPreviousInvoice');
+Route::get('Invoices/{id}/GetNextInvoice', 'InvoiceController@GetNextInvoice');
 Route::post('Invoices/AddInvoice', 'InvoiceController@AddInvoice');
 Route::post('Invoices/{id}/UpdateInvoice', 'InvoiceController@UpdateInvoice');
 Route::post('Invoices/PayFixedAmount', 'InvoiceController@payFixedAmount');
