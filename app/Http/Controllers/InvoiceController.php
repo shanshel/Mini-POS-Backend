@@ -32,7 +32,6 @@ class InvoiceController extends Controller
 
 
     public function GetNextInvoice($id){
-
         return Invoice::with('customer')->with('invoiceitems')->where('id', '>', $id)->orderBy('id')->first();
     }
 
